@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How Things Work 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: workbench — live 3D stage on the left, explainer panel on the right; stacks on phones. Home = machine catalogue by book part. */
+:root {
+  --bg: #E9EDF1;
+  --panel: #F8FAFB;
+  --ink: #141C24;
+  --muted: #56636F;
+  --line: #CDD5DD;
+  --accent: #D9500B;
+  --accent-soft: rgba(217, 80, 11, .12);
+  --scene: #DCE3EA;
+  --ground: #C3CDD7;
+  --display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+  --body: 'Atkinson Hyperlegible', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1319; --panel: #141C25; --ink: #E4EBF2; --muted: #93A2B1; --line: #26323F;
+    --accent: #FF7A33; --accent-soft: rgba(255, 122, 51, .14);
+    --scene: #111A23; --ground: #1C2733; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1319; --panel: #141C25; --ink: #E4EBF2; --muted: #93A2B1; --line: #26323F;
+  --accent: #FF7A33; --accent-soft: rgba(255, 122, 51, .14);
+  --scene: #111A23; --ground: #1C2733; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+a { color: inherit; }
+.app { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; flex-direction: column; gap: 4px; }
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.back { font: 700 14px var(--body); color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 4vw, 38px); line-height: 1.1; margin: 0; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 62ch; }
+
+/* Home catalogue */
+.groups { display: flex; flex-direction: column; gap: 22px; }
+.group h2 { font-family: var(--display); font-size: 20px; margin: 0 0 8px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.card { display: flex; flex-direction: column; gap: 2px; text-decoration: none; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.card:hover { border-color: var(--accent); }
+.card b { font-family: var(--display); font-size: 17px; }
+.card span { font-size: 14px; color: var(--muted); }
+
+.tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; align-self: flex-start; }
+.tab { font: 700 15px var(--body); color: var(--muted); background: transparent; border: 0; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.tab:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.stage { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+#view { position: relative; width: 100%; max-width: 100%; aspect-ratio: 4 / 3.2; max-height: 70vh; border-radius: 14px; overflow: hidden; background: var(--scene); border: 1px solid var(--line); touch-action: none; }
+#scene { display: block; width: 100%; height: 100%; cursor: grab; }
+#scene:active { cursor: grabbing; }
+#labels { position: absolute; inset: 0; pointer-events: none; }
+.label {
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); pointer-events: auto;
+  font: 700 12px var(--body); color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px 9px; white-space: nowrap; cursor: pointer; opacity: .92;
+}
+.label.on { background: var(--accent); color: #fff; border-color: var(--accent); opacity: 1; z-index: 2; }
+.mark { position: absolute; left: 0; top: 0; transform: translate(6px, -50%); font: 500 11px var(--mono); color: var(--muted); letter-spacing: .06em; white-space: nowrap; }
+.banner {
+  position: absolute; left: 12px; top: 12px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; max-width: calc(100% - 24px);
+}
+.banner b { font-family: var(--display); font-size: 18px; }
+.banner span { color: var(--accent); font-weight: 700; }
+.hint { position: absolute; right: 12px; bottom: 10px; font-size: 12px; color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.btn { font: 700 15px var(--body); border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 10px; padding: 9px 16px; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; min-width: 108px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { font: 700 14px var(--body); border: 0; background: var(--panel); color: var(--muted); padding: 9px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.readout { font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
+.readout strong { color: var(--ink); font-weight: 500; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.panel h2 { font-family: var(--display); font-size: 20px; margin: 0; }
+.panel p { margin: 0; }
+.muted { color: var(--muted); font-size: 14px; }
+.steps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.step { text-align: left; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 10px; padding: 8px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; font-family: var(--body); min-width: 0; }
+.step .n { font: 500 11px var(--mono); color: var(--muted); letter-spacing: .06em; }
+.step .k { font-family: var(--display); font-weight: 700; font-size: 16px; line-height: 1.2; }
+.step.on { border-color: var(--accent); background: var(--accent-soft); }
+.step.on .n { color: var(--accent); }
+.detail { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.detail h3 { font-family: var(--display); font-size: 22px; margin: 0; }
+.parts { display: flex; flex-wrap: wrap; gap: 6px; }
+.part { font: 700 13px var(--body); border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 5px 11px; cursor: pointer; }
+.part.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.part { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.label.on { outline: 3px solid var(--ink); outline-offset: 1px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+.facts strong { color: var(--ink); font-family: var(--mono); font-weight: 500; }
+.pager { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pager a { font: 700 14px var(--body); color: var(--accent); text-decoration: none; }
+.err { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: var(--muted); }
+@media (max-width: 480px) { .hint { display: none; } .readout { margin-left: 0; width: 100%; } }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="top">
+      <p class="eyebrow" id="eyebrow">How Everyday Things Work · 3D companion</p>
+      <a class="back" id="back" href="#" hidden>All machines</a>
+    </div>
+    <h1 id="title">See every machine in 3D</h1>
+    <p class="lede" id="lede">Pick a machine from the book. Watch it run, slow it down, then switch to Anatomy to explore every part.</p>
+  </header>
+
+  <section id="home" class="groups"></section>
+
+  <section id="machine" hidden>
+    <div class="tabs" role="tablist" aria-label="View">
+      <button class="tab" role="tab" id="tab-work" aria-selected="true" aria-controls="work">How it works</button>
+      <button class="tab" role="tab" id="tab-anatomy" aria-selected="false" aria-controls="anatomy">Anatomy</button>
+    </div>
+    <div class="grid" style="margin-top:16px">
+      <div class="stage">
+        <div id="view">
+          <canvas id="scene" aria-label="3D model. Drag to rotate."></canvas>
+          <div id="labels"></div>
+          <div class="banner" id="banner"><b id="bannerName"></b><span id="bannerKid"></span></div>
+          <div class="hint">Drag to spin · pinch or scroll to zoom</div>
+        </div>
+        <div class="controls">
+          <button class="btn primary" id="play" aria-pressed="true">Pause</button>
+          <div class="seg" role="group" aria-label="Speed">
+            <button id="sp-slow" aria-pressed="false">Slow</button>
+            <button id="sp-normal" aria-pressed="true">Normal</button>
+            <button id="sp-fast" aria-pressed="false">Fast</button>
+          </div>
+          <button class="btn" id="next">Next step</button>
+          <div class="readout" id="readout"></div>
+        </div>
+        <nav class="pager" aria-label="More machines"><a id="prev-link" href="#"></a><a id="next-link" href="#"></a></nav>
+      </div>
+
+      <aside class="panel" id="work" role="tabpanel" aria-labelledby="tab-work">
+        <h2>Step by step</h2>
+        <p class="muted">Tap a step to jump to it. The glowing card follows the machine as it runs.</p>
+        <div class="steps" id="steps"></div>
+        <div class="detail">
+          <h3 id="sName"></h3>
+          <p id="sText"></p>
+        </div>
+        <div class="facts" id="facts"></div>
+      </aside>
+
+      <aside class="panel" id="anatomy" role="tabpanel" aria-labelledby="tab-anatomy" hidden>
+        <h2>Parts</h2>
+        <p class="muted">Tap a part here, or tap it on the model, to light it up.</p>
+        <div class="parts" id="parts"></div>
+        <div class="detail">
+          <h3 id="pName"></h3>
+          <p id="pText"></p>
+        </div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="core.js"></script>
+<script src="kitchen.js"></script>
+<script src="house.js"></script>
+<script src="gadgets.js"></script>
+<script src="road.js"></script>
+<script>HTW.start();</script>
+
+</body>
+</html>
